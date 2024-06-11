@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import messagebox, PhotoImage
 import mysql.connector
 
 # Configuração inicial
@@ -9,19 +9,25 @@ ctk.set_default_color_theme("dark-blue")  # Temas: "blue" (padrão), "green", "d
 # Criando a janela principal
 root = ctk.CTk()
 root.title("Verbo Amar")
+root.iconbitmap('WhatsApp-Image-2024-06-10-at-15.31.43.ico')
 root.state("zoomed")  # Definindo a janela para tela cheia
 
 
 def connect_to_db():
     return mysql.connector.connect(
-        host='localhost',
-        user='root',
-        password='',
-        database='verbo_amar'
+        host='verbo-amar2.c3emqawq4ond.sa-east-1.rds.amazonaws.com',
+        user='admin',
+        password='verboamar',
+        database='verboAmar',
+        port='3306'
     )
 
+
 # Função de callback para o botão de login
-def register_user(username, password):
+def registrar():
+    username = entry_username.get()
+    password = entry_password.get()
+
     try:
         connection = connect_to_db()
         cursor = connection.cursor()
@@ -138,6 +144,14 @@ def show_login_screen():
     # Botão de login
     button_login = ctk.CTkButton(login_frame, text="Entrar", command=login, width=300, height=40, font=("Arial", 16), fg_color="#B22222")
     button_login.place(x=150, y=400)
+
+    button_registrar = ctk.CTkButton(login_frame, text="Registrar", command=registrar, width=300, height=40, font=("Arial", 16), fg_color="#B22222")
+    button_registrar.place(x=150, y=450)
+
+    img = PhotoImage(file='WhatsApp-Image-2024-06-10-at-15.31.20-removebg-preview.png')
+    l_img = ctk.CTkLabel(root, image=img, text='')
+    l_img.place(x=150, y=250)
+
 
 def show_cadastro_beneficiario():
     # Remove todos os widgets da janela principal
