@@ -25,9 +25,15 @@ def connect_to_db():
 
 # Função de callback para o botão de login
 
-def consultar_beneficiario(documento):
+def consultar_beneficiario(documento_entry):
     try:
+        # Extrair o valor de texto do campo de entrada
+        documento = documento_entry.get()
+
         connection = connect_to_db()
+        if connection is None:
+            return None
+
         cursor = connection.cursor()
 
         query = "SELECT * FROM beneficiarios WHERE documento = %s"
@@ -45,9 +51,17 @@ def consultar_beneficiario(documento):
     except mysql.connector.Error as err:
         messagebox.showerror("Erro", f"Erro ao consultar beneficiário: {err}")
 
-def excluir_beneficiario(documento):
+
+# Função para excluir beneficiário
+def excluir_beneficiario(documento_entry):
     try:
+        # Extrair o valor de texto do campo de entrada
+        documento = documento_entry.get()
+
         connection = connect_to_db()
+        if connection is None:
+            return
+
         cursor = connection.cursor()
 
         query = "DELETE FROM beneficiarios WHERE documento = %s"
@@ -62,9 +76,32 @@ def excluir_beneficiario(documento):
     except mysql.connector.Error as err:
         messagebox.showerror("Erro", f"Erro ao excluir beneficiário: {err}")
 
-def alterar_beneficiario(documento, nome, data_nascimento, sexo, telefone, condicao, raca_etnia, endereco, email, escolaridade, deficiencia, tipo_deficiencia, atividades, obs):
+
+# Função para alterar beneficiário
+def alterar_beneficiario(documento_entry, nome_entry, data_nascimento_entry, sexo_entry, telefone_entry, condicao_entry,
+                         raca_etnia_entry, endereco_entry, email_entry, escolaridade_entry, deficiencia_entry,
+                         tipo_deficiencia_entry, atividades_entry, obs_entry):
     try:
+        # Extrair os valores de texto dos campos de entrada
+        documento = documento_entry.get()
+        nome = nome_entry.get()
+        data_nascimento = data_nascimento_entry.get()
+        sexo = sexo_entry.get()
+        telefone = telefone_entry.get()
+        condicao = condicao_entry.get()
+        raca_etnia = raca_etnia_entry.get()
+        endereco = endereco_entry.get()
+        email = email_entry.get()
+        escolaridade = escolaridade_entry.get()
+        deficiencia = deficiencia_entry.get()
+        tipo_deficiencia = tipo_deficiencia_entry.get()
+        atividades = atividades_entry.get()
+        obs = obs_entry.get()
+
         connection = connect_to_db()
+        if connection is None:
+            return
+
         cursor = connection.cursor()
 
         query = """
@@ -72,7 +109,9 @@ def alterar_beneficiario(documento, nome, data_nascimento, sexo, telefone, condi
             condicao=%s, raca_etnia=%s, endereco=%s, email=%s, escolaridade=%s, deficiencia=%s,
             tipo_deficiencia=%s, atividades=%s, obs=%s WHERE documento=%s
         """
-        cursor.execute(query, (nome, data_nascimento, sexo, telefone, condicao, raca_etnia, endereco, email, escolaridade, deficiencia, tipo_deficiencia, atividades, obs, documento))
+        cursor.execute(query, (
+        nome, data_nascimento, sexo, telefone, condicao, raca_etnia, endereco, email, escolaridade, deficiencia,
+        tipo_deficiencia, atividades, obs, documento))
         connection.commit()
 
         cursor.close()
@@ -331,9 +370,9 @@ def show_cadastro_beneficiario():
     button_back = ctk.CTkButton(cadastro_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
     button_back.grid(row=row+1, column=0, columnspan=2, pady=20)
 
-    button_consultar = ctk.CTkButton(cadastro_frame, text='Consultar', width=200, height=40, font=("Arial", 16),
+    button_consultar = ctk.CTkButton(cadastro_frame, text='Excluir', width=200, height=40, font=("Arial", 16),
                                      fg_color="#B22222", command=lambda: excluir_beneficiario(entryDocumento))
-    button_consultar.grid(row=1, column=1, columnspan=2, pady=20)
+    button_consultar.grid(row=row+2, column=0, columnspan=2, pady=20)
 
 def show_projetos():
     # Remove todos os widgets da janela principal
