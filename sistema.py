@@ -44,12 +44,30 @@ def consultar_beneficiario(documento_entry):
         connection.close()
 
         if beneficiario:
-            return beneficiario
+            # Formatar as informações do beneficiário para exibição
+            beneficiario_info = (
+                f"Documento: {beneficiario[0]}\n"
+                f"Condição: {beneficiario[1]}\n"
+                f"Nome: {beneficiario[2]}\n"
+                f"Data de Nascimento: {beneficiario[3]}\n"
+                f"Sexo: {beneficiario[4]}\n"
+                f"Raça/Cor: {beneficiario[5]}\n"
+                f"Telefone/WhatsApp: {beneficiario[6]}\n"
+                f"Endereço: {beneficiario[7]}\n"
+                f"Email: {beneficiario[8]}\n"
+                f"Escolaridade: {beneficiario[9]}\n"
+                f"Deficiência: {beneficiario[10]}\n"
+                f"Tipo de Deficiência: {beneficiario[11]}\n"
+                f"Atividades: {beneficiario[12]}\n"
+                f"Observações: {beneficiario[13]}"
+            )
+            messagebox.showinfo("Informações do Beneficiário", beneficiario_info)
         else:
-            return None
+            messagebox.showinfo("Não encontrado", "Beneficiário não encontrado.")
 
     except mysql.connector.Error as err:
         messagebox.showerror("Erro", f"Erro ao consultar beneficiário: {err}")
+
 
 
 # Função para excluir beneficiário
@@ -357,7 +375,7 @@ def show_cadastro_beneficiario():
     entryOBS = ctk.CTkEntry(cadastro_frame, width=400, font=("Arial", 16))
     entryOBS.grid(row=14, column=1, pady=10, padx=10, sticky="w")
 
-    button_save = ctk.CTkButton(cadastro_frame, text="Salvar", width=200, height=40, font=("Arial", 16),
+    button_save = ctk.CTkButton(cadastro_frame, text="Salvar", width=150, height=40, font=("Arial", 16),
                                 fg_color="#B22222",
                                 command=lambda: save_beneficiario(entryNome, entryDataNasc, entrySexo, entryDocumento,
                                                                   entryTelefone, entryCondicao, entryRaca,
@@ -367,12 +385,23 @@ def show_cadastro_beneficiario():
 
     button_save.grid(row=row, column=0, columnspan=2, pady=20)
 
-    button_back = ctk.CTkButton(cadastro_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
+    button_back = ctk.CTkButton(cadastro_frame, text="Voltar", width=150, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
     button_back.grid(row=row+1, column=0, columnspan=2, pady=20)
 
-    button_consultar = ctk.CTkButton(cadastro_frame, text='Excluir', width=200, height=40, font=("Arial", 16),
+    button_excluir = ctk.CTkButton(cadastro_frame, text='Excluir', width=150, height=40, font=("Arial", 16),
                                      fg_color="#B22222", command=lambda: excluir_beneficiario(entryDocumento))
-    button_consultar.grid(row=row+2, column=0, columnspan=2, pady=20)
+    button_excluir.grid(row=row+2, column=0, columnspan=2, pady=20)
+
+    button_consultar = ctk.CTkButton(cadastro_frame, text='Consultar', width=150, height=40, font=("Arial", 16),
+                                     fg_color="#B22222", command=lambda: consultar_beneficiario(entryDocumento))
+    button_consultar.place(x=420, y=760)
+    button_atualizar = ctk.CTkButton(cadastro_frame, text='Atualizar', width=150, height=40, font=("Arial", 16),
+                                     fg_color="#B22222", command=lambda: alterar_beneficiario(entryNome, entryDataNasc, entrySexo, entryDocumento,
+                                                                  entryTelefone, entryCondicao, entryRaca,
+                                                                  entryEndereco, entryEmail, entryEscolaridade,
+                                                                  entryDeficiencia, entryTipoDeficiencia,
+                                                                  entryAtividades, entryOBS))
+    button_atualizar.place(x=420, y=840)
 
 def show_projetos():
     # Remove todos os widgets da janela principal
