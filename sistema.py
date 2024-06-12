@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from tkinter import messagebox, PhotoImage
+from tkinter import messagebox
 import mysql.connector
 
 # Configuração inicial
@@ -152,6 +152,7 @@ def show_login_screen():
     l_img = ctk.CTkLabel(root, image=img, text='')
     l_img.place(x=150, y=250)
 
+#-------------------------------------CADASTRO DE BENEFICIÁRIOS------------------------------------------------------------------------------------    
 
 def show_cadastro_beneficiario():
     # Remove todos os widgets da janela principal
@@ -166,9 +167,9 @@ def show_cadastro_beneficiario():
     label_title.grid(row=0, column=0, columnspan=2, pady=20)
 
     labels = [
-        "Nome", "Telefone/WhatsApp", "Endereço", "E-mail", "Documento",
-        "Data de aniversário", "Profissão", "Área de atuação do trabalho voluntário","Forma de pagamento",
-        "Horário do trabalho (dia e horário)", "Data de entrada", "Data de saída", "OBS"
+        "Nome Completo", "Data de Nascimento (dd-mm-aaaa)", "Sexo (F,M)", "Documento (CPF, Identidade, Certidadão de nascimento)",
+        "Telefone/WhatsApp (xx) xxxxx-xxxx", "Condição (Ativo/Inativo)", "Raça/Etnia", "Endereço Nº", "E-mail (fulano@gmail.com.br)", "Escolaridade",
+        "Algum tipo de deficiencia? (S,N)","Qual tipo de deficiencia possui? ", "Turno das Atividades que realiza (Manhã/ Tarde / Noite)"
     ]
 
     entries = {}
@@ -181,6 +182,11 @@ def show_cadastro_beneficiario():
         entry.grid(row=row, column=1, pady=10, padx=10, sticky="w")
         entries[label_text] = entry
 
+        if label_text == "Deficiência (sim, não)":
+            deficiencia_entry = ctk.CTkEntry(cadastro_frame, width=400, font=("Arial", 16), state="disabled")
+            deficiencia_entry.grid(row=row+1, column=1, pady=10, padx=10, sticky="w")
+            deficiencia_entry.bind("<FocusIn>", lambda event, entry=deficiencia_entry: on_deficiencia_focus(entries, entry))
+
         row += 1
 
     button_save = ctk.CTkButton(cadastro_frame, text="Salvar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=lambda: save_beneficiario(entries))
@@ -188,6 +194,59 @@ def show_cadastro_beneficiario():
 
     button_back = ctk.CTkButton(cadastro_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
     button_back.grid(row=row+1, column=0, columnspan=2, pady=20)
+
+def on_deficiencia_focus(entries, deficiencia_entry):
+    deficiencia_value = entries["Deficiência (sim, não)"].get().lower()
+    if deficiencia_value == "sim":
+        deficiencia_entry.config(state="normal")
+    else:
+        deficiencia_entry.delete(0, "end")
+        deficiencia_entry.config(state="disabled")
+
+
+
+#----------------------------------------Salvando os beneficiarios na tabela sql > teste 1 (NÃO FUNCIONOU)----------------------------------------------------------------------
+
+'''
+def save_beneficiario(entries):
+    # Obtendo os valores dos campos de entrada
+    nome = entries["Nome Completo"].get()
+    data_nascimento = entries["Data de Nascimento (dd-mm-aaaa)"].get()
+    sexo = entries["Sexo (F,M)"].get()
+    documento = entries["Documento (CPF, Identidade, Certidão de nascimento)"].get()
+    telefone = entries["Telefone/WhatsApp (xx) xxxxx-xxxx"].get()
+    condicao = entries["Condição (Ativo/Inativo)"].get()
+    raca_etnia = entries["Raça/Etnia"].get()
+    endereco = entries["Endereço Nº"].get()
+    email = entries["E-mail (fulano@gmail.com.br)"].get()
+    escolaridade = entries["Escolaridade"].get()
+    deficiencia = entries["Deficiência (sim, não)"].get().lower() == "sim"
+    tipo_deficiencia = entries["Qual tipo de deficiência possui? "].get()
+    atividades = entries["Turno das Atividades que realiza (Manhã/ Tarde / Noite)"].get()
+
+    try:
+        connection = connect_to_db()
+        cursor = connection.cursor()
+
+        # Comando SQL para inserir dados na tabela de beneficiários
+        query = """
+            INSERT INTO beneficiarios (documento, condicao, nome, data_nascimento, sexo, raca_etnia, telefone_whatsapp,
+                                       endereco, email, escolaridade, deficiencia, tipo_deficiencia, atividades)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(query, (documento, condicao, nome, data_nascimento, sexo, raca_etnia, telefone,
+                               endereco, email, escolaridade, deficiencia, tipo_deficiencia, atividades))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        messagebox.showinfo("Cadastro", "Beneficiário cadastrado com sucesso!")
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao cadastrar beneficiário: {err}") '''
+
+
+#-----------------------------------------------PROJETOS-----------------------------------------------------------------------------------------
 
 def show_projetos():
     # Remove todos os widgets da janela principal
@@ -226,6 +285,10 @@ def show_projetos():
     button_back = ctk.CTkButton(projeto_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
     button_back.grid(row=row+2, column=0, columnspan=2, pady=20)
 
+
+
+#-----------------------------------------------VOLUNTARIOS-----------------------------------------------------------------------------------------
+
 def show_voluntarios():
     # Remove todos os widgets da janela principal
     for widget in root.winfo_children():
@@ -250,6 +313,9 @@ def show_voluntarios():
     button_back = ctk.CTkButton(voluntario_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
     button_back.grid(row=i+1, column=0, pady=20)
 
+
+#-----------------------------------------------RELATÓRIOS-----------------------------------------------------------------------------------------
+
 def show_gerar_relatorios():
     # Remove todos os widgets da janela principal
     for widget in root.winfo_children():
@@ -273,6 +339,9 @@ def show_gerar_relatorios():
 
     button_back = ctk.CTkButton(relatorio_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
     button_back.grid(row=4, column=0, columnspan=2, pady=20)
+
+
+#-----------------------------------------------FINANCEIRO-----------------------------------------------------------------------------------------
 
 def show_financeiro():
     # Remove todos os widgets da janela principal
@@ -304,11 +373,18 @@ def show_financeiro():
     button_back = ctk.CTkButton(financeiro_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
     button_back.grid(row=row+1, column=0, columnspan=2, pady=20)
 
+
+#-----------------------------------------------CADASTRAR EMPRESA-----------------------------------------------------------------------------------------
+
 def show_cadastro_empresa():
     show_cadastro_financeiro("Empresa")
 
+#-----------------------------------------------CADASTRAR ONG-----------------------------------------------------------------------------------------
+
 def show_cadastro_ong():
     show_cadastro_financeiro("ONG")
+
+#-----------------------------------------------CADASTRAR EDITAL-----------------------------------------------------------------------------------------
 
 def show_cadastro_edital():
     show_cadastro_financeiro("Edital")
@@ -349,6 +425,8 @@ def show_cadastro_financeiro(tipo):
     button_back = ctk.CTkButton(financeiro_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=show_financeiro)
     button_back.grid(row=row+1, column=0, columnspan=2, pady=20)
 
+
+#--------------------------------------------LISTA DE PROJETOS------------------------------------------------------------------------------
 def listar_projetos():
     # Função para listar projetos
     messagebox.showinfo("Lista de Projetos", "Lista de projetos cadastrados:\n- Projeto 1\n- Projeto 2")
