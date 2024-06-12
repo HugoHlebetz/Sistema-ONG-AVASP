@@ -24,6 +24,66 @@ def connect_to_db():
 
 
 # Função de callback para o botão de login
+
+def consultar_beneficiario(documento):
+    try:
+        connection = connect_to_db()
+        cursor = connection.cursor()
+
+        query = "SELECT * FROM beneficiarios WHERE documento = %s"
+        cursor.execute(query, (documento,))
+        beneficiario = cursor.fetchone()
+
+        cursor.close()
+        connection.close()
+
+        if beneficiario:
+            return beneficiario
+        else:
+            return None
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao consultar beneficiário: {err}")
+
+def excluir_beneficiario(documento):
+    try:
+        connection = connect_to_db()
+        cursor = connection.cursor()
+
+        query = "DELETE FROM beneficiarios WHERE documento = %s"
+        cursor.execute(query, (documento,))
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+        messagebox.showinfo("Exclusão", "Beneficiário excluído com sucesso!")
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao excluir beneficiário: {err}")
+
+def alterar_beneficiario(documento, nome, data_nascimento, sexo, telefone, condicao, raca_etnia, endereco, email, escolaridade, deficiencia, tipo_deficiencia, atividades, obs):
+    try:
+        connection = connect_to_db()
+        cursor = connection.cursor()
+
+        query = """
+            UPDATE beneficiarios SET nome=%s, data_nascimento=%s, sexo=%s, telefone_whatsapp=%s,
+            condicao=%s, raca_etnia=%s, endereco=%s, email=%s, escolaridade=%s, deficiencia=%s,
+            tipo_deficiencia=%s, atividades=%s, obs=%s WHERE documento=%s
+        """
+        cursor.execute(query, (nome, data_nascimento, sexo, telefone, condicao, raca_etnia, endereco, email, escolaridade, deficiencia, tipo_deficiencia, atividades, obs, documento))
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+        messagebox.showinfo("Alteração", "Beneficiário alterado com sucesso!")
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao alterar beneficiário: {err}")
+
+
 def registrar():
     username = entry_username.get()
     password = entry_password.get()
@@ -105,6 +165,7 @@ def save_beneficiario(entryNome, entryDataNasc, entrySexo, entryDocumento, entry
 
     except mysql.connector.Error as err:
         messagebox.showerror("Erro", f"Erro ao cadastrar beneficiário: {err}")
+
 def open_menu():
     # Remove todos os widgets da janela principal
     for widget in root.winfo_children():
@@ -269,6 +330,10 @@ def show_cadastro_beneficiario():
 
     button_back = ctk.CTkButton(cadastro_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
     button_back.grid(row=row+1, column=0, columnspan=2, pady=20)
+
+    button_consultar = ctk.CTkButton(cadastro_frame, text='Consultar', width=200, height=40, font=("Arial", 16),
+                                     fg_color="#B22222", command=lambda: excluir_beneficiario(entryDocumento))
+    button_consultar.grid(row=1, column=1, columnspan=2, pady=20)
 
 def show_projetos():
     # Remove todos os widgets da janela principal
