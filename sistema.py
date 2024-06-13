@@ -9,7 +9,6 @@ ctk.set_default_color_theme("dark-blue")  # Temas: "blue" (padrão), "green", "d
 # Criando a janela principal
 root = ctk.CTk()
 root.title("Verbo Amar")
-root.iconbitmap('WhatsApp-Image-2024-06-10-at-15.31.43.ico')
 root.state("zoomed")  # Definindo a janela para tela cheia
 
 
@@ -67,6 +66,71 @@ def consultar_beneficiario(documento_entry):
 
     except mysql.connector.Error as err:
         messagebox.showerror("Erro", f"Erro ao consultar beneficiário: {err}")
+
+def consultar_voluntario(documento2_entry):
+    try:
+        # Extrair o valor de texto do campo de entrada
+        documento = documento2_entry.get()
+
+        connection = connect_to_db()
+        if connection is None:
+            return None
+
+        cursor = connection.cursor()
+
+        query = "SELECT * FROM voluntarios WHERE documento = %s"
+        cursor.execute(query, (documento,))
+        voluntarios = cursor.fetchone()
+
+        cursor.close()
+        connection.close()
+
+        if voluntarios:
+            # Formatar as informações do beneficiário para exibição
+            voluntario_info = (
+                f"Nome: {voluntarios[0]}\n"
+                f"Telefone: {voluntarios[1]}\n"
+                f"Endereço: {voluntarios[2]}\n"
+                f"E-mail: {voluntarios[3]}\n"
+                f"Data de Nascimento: {voluntarios[4]}\n"
+                f"Documento: {voluntarios[5]}\n"
+                f"Profissão: {voluntarios[6]}\n"
+                f"Valor: {voluntarios[7]}\n"
+                f"Forma de Pagamento: {voluntarios[8]}\n"
+                f"Apadrinhamento: {voluntarios[9]}\n"
+                f"Data de Entrada: {voluntarios[10]}\n"
+                f"Data de Saída: {voluntarios[11]}\n"
+                f"OBS: {voluntarios[12]}"
+            )
+            messagebox.showinfo("Informações do Voluntário", voluntario_info)
+        else:
+            messagebox.showinfo("Não encontrado", "Voluntário não encontrado.")
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao consultar Voluntário: {err}")
+
+def excluir_voluntario(documento2_entry):
+    try:
+        # Extrair o valor de texto do campo de entrada
+        documento = documento2_entry.get()
+
+        connection = connect_to_db()
+        if connection is None:
+            return
+
+        cursor = connection.cursor()
+
+        query = "DELETE FROM voluntarios WHERE documento = %s"
+        cursor.execute(query, (documento,))
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+        messagebox.showinfo("Exclusão", "Voluntário excluído com sucesso!")
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao excluir Voluntário: {err}")
 
 
 
@@ -223,6 +287,34 @@ def save_beneficiario(entryNome, entryDataNasc, entrySexo, entryDocumento, entry
     except mysql.connector.Error as err:
         messagebox.showerror("Erro", f"Erro ao cadastrar beneficiário: {err}")
 
+def cadastrar_projeto(EntryNomeProjeto, EntryDataInicio, EntryDataTermino, EntryParticipantes):
+    try:
+        connection = connect_to_db()
+        cursor = connection.cursor()
+
+        # Obtendo os valores dos campos de entrada
+        nome_projeto = EntryNomeProjeto.get()
+        data_inicio = EntryDataInicio.get()
+        data_termino = EntryDataTermino.get()
+        participantes = EntryParticipantes.get()
+
+        # Comando SQL para inserir dados na tabela de projetos
+        query = """
+            INSERT INTO projetos (nome_projeto, data_inicio, data_termino, participantes)
+            VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(query, (nome_projeto, data_inicio, data_termino, participantes))
+
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        messagebox.showinfo("Cadastro de Projeto", "Projeto cadastrado com sucesso!")
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao cadastrar projeto: {err}")
+
 def open_menu():
     # Remove todos os widgets da janela principal
     for widget in root.winfo_children():
@@ -238,11 +330,9 @@ def open_menu():
 
     buttons = [
         ("Cadastrar Beneficiários", show_cadastro_beneficiario),
-        ("Gerar Relatórios", show_gerar_relatorios),
         ("Projetos", show_projetos),
         ("Financeiro", show_financeiro),
-        ("Voluntários", show_voluntarios),
-        ("Indicadores", show_indicadores)
+        ("Logout", logout),
     ]
 
     row, col = 1, 0
@@ -253,9 +343,6 @@ def open_menu():
         if col == 2:
             col = 0
             row += 1
-
-    button_logout = ctk.CTkButton(menu_frame, text="Logout", command=logout, width=200, height=40, font=("Arial", 16), fg_color="#B22222")
-    button_logout.grid(row=row+1, column=0, columnspan=2, pady=20)
 
 def logout():
     # Remove todos os widgets do menu
@@ -302,10 +389,6 @@ def show_login_screen():
 
     button_registrar = ctk.CTkButton(login_frame, text="Registrar", command=registrar, width=300, height=40, font=("Arial", 16), fg_color="#B22222")
     button_registrar.place(x=150, y=450)
-
-    img = PhotoImage(file='WhatsApp-Image-2024-06-10-at-15.31.20-removebg-preview.png')
-    l_img = ctk.CTkLabel(root, image=img, text='')
-    l_img.place(x=150, y=250)
 
 
 def show_cadastro_beneficiario():
@@ -419,26 +502,37 @@ def show_projetos():
         "Nome do projeto", "Data de início", "Data de término", "Participantes"
     ]
 
-    entries = {}
     row = 1
     for label_text in labels:
         label = ctk.CTkLabel(projeto_frame, text=f"{label_text}:", font=("Arial", 16))
         label.grid(row=row, column=0, pady=10, padx=10, sticky="e")
 
-        entry = ctk.CTkEntry(projeto_frame, width=400, font=("Arial", 16))
-        entry.grid(row=row, column=1, pady=10, padx=10, sticky="w")
-        entries[label_text] = entry
-
         row += 1
 
-    button_save = ctk.CTkButton(projeto_frame, text="Salvar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=lambda: save_projeto(entries))
+    entryNomeProjeto = ctk.CTkEntry(projeto_frame, width=400, font=("Arial", 16))
+    entryNomeProjeto.grid(row=1, column=1, pady=10, padx=10, sticky="w")
+
+    entryProjetoDataInicio = ctk.CTkEntry(projeto_frame, width=400, font=("Arial", 16))
+    entryProjetoDataInicio.grid(row=2, column=1, pady=10, padx=10, sticky="w")
+
+    entryProjetoDataFim = ctk.CTkEntry(projeto_frame, width=400, font=("Arial", 16))
+    entryProjetoDataFim.grid(row=3, column=1, pady=10, padx=10, sticky="w")
+
+    entryParticipantes = ctk.CTkEntry(projeto_frame, width=400, font=("Arial", 16))
+    entryParticipantes.grid(row=4, column=1, pady=10, padx=10, sticky="w")
+
+    button_save = ctk.CTkButton(projeto_frame, text="Salvar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=lambda: save_projeto(entryNomeProjeto, entryProjetoDataInicio, entryProjetoDataFim, entryParticipantes))
     button_save.grid(row=row, column=0, columnspan=2, pady=20)
 
     button_list = ctk.CTkButton(projeto_frame, text="Listar Projetos", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=listar_projetos)
     button_list.grid(row=row+1, column=0, columnspan=2, pady=20)
 
+    button_delete = ctk.CTkButton(projeto_frame, text="Excluir Projeto", width=200, height=40, font=("Arial", 16),
+                                  command=lambda: excluir_projeto(entryNomeProjeto), fg_color="#B22222",)
+    button_delete.grid(row=row+2, column=0, columnspan=2, pady=20)
+
     button_back = ctk.CTkButton(projeto_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
-    button_back.grid(row=row+2, column=0, columnspan=2, pady=20)
+    button_back.grid(row=row+3, column=0, columnspan=2, pady=20)
 
 def show_voluntarios():
     # Remove todos os widgets da janela principal
@@ -464,29 +558,6 @@ def show_voluntarios():
     button_back = ctk.CTkButton(voluntario_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
     button_back.grid(row=i+1, column=0, pady=20)
 
-def show_gerar_relatorios():
-    # Remove todos os widgets da janela principal
-    for widget in root.winfo_children():
-        widget.destroy()
-
-    # Cria um frame para gerar relatórios
-    relatorio_frame = ctk.CTkFrame(root, width=1600, height=800)
-    relatorio_frame.place(relx=0.5, rely=0.5, anchor="center")
-
-    label_title = ctk.CTkLabel(relatorio_frame, text="Gerar Relatórios", font=("Arial", 24))
-    label_title.grid(row=0, column=0, columnspan=2, pady=20)
-
-    text_relatorio = ctk.CTkTextbox(relatorio_frame, width=500, height=500, font=("Arial", 16))
-    text_relatorio.grid(row=1, column=0, columnspan=2, pady=10, padx=10)
-
-    button_save = ctk.CTkButton(relatorio_frame, text="Salvar Relatório", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=lambda: save_relatorio(text_relatorio))
-    button_save.grid(row=2, column=0, columnspan=2, pady=20)
-
-    button_list = ctk.CTkButton(relatorio_frame, text="Listar Relatórios", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=listar_relatorios)
-    button_list.grid(row=3, column=0, columnspan=2, pady=20)
-
-    button_back = ctk.CTkButton(relatorio_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
-    button_back.grid(row=4, column=0, columnspan=2, pady=20)
 
 def show_financeiro():
     # Remove todos os widgets da janela principal
@@ -501,9 +572,7 @@ def show_financeiro():
     label_title.grid(row=0, column=0, columnspan=2, pady=20)
 
     buttons = [
-        ("Cadastrar Empresas", show_cadastro_empresa),
-        ("Cadastrar ONGs", show_cadastro_ong),
-        ("Cadastrar Editais", show_cadastro_edital)
+        ("Cadastrar Voluntários", lambda: show_cadastro_financeiro("voluntário"))
     ]
 
     row, col = 1, 0
@@ -517,17 +586,6 @@ def show_financeiro():
 
     button_back = ctk.CTkButton(financeiro_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=open_menu)
     button_back.grid(row=row+1, column=0, columnspan=2, pady=20)
-
-
-
-def show_cadastro_empresa():
-    show_cadastro_financeiro("Empresa")
-
-def show_cadastro_ong():
-    show_cadastro_financeiro("ONG")
-
-def show_cadastro_edital():
-    show_cadastro_financeiro("Edital")
 
 def show_cadastro_financeiro(tipo):
     # Remove todos os widgets da janela principal
@@ -553,40 +611,189 @@ def show_cadastro_financeiro(tipo):
         label = ctk.CTkLabel(financeiro_frame, text=f"{label_text}:", font=("Arial", 16))
         label.grid(row=row, column=0, pady=10, padx=10, sticky="e")
 
-        entry = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
-        entry.grid(row=row, column=1, pady=10, padx=10, sticky="w")
-        entries[label_text] = entry
-
         row += 1
+    entryNome2 = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryNome2.grid(row=1, column=1, pady=10, padx=10, sticky="w")
 
-    button_save = ctk.CTkButton(financeiro_frame, text="Salvar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=lambda: save_financeiro(entries))
+    entryTelefone2 = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryTelefone2.grid(row=2, column=1, pady=10, padx=10, sticky="w")
+
+    entryEndereco2 = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryEndereco2.grid(row=3, column=1, pady=10, padx=10, sticky="w")
+
+    entryEmail2 = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryEmail2.grid(row=4, column=1, pady=10, padx=10, sticky="w")
+
+    entryDataNasc2 = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryDataNasc2.grid(row=5, column=1, pady=10, padx=10, sticky="w")
+
+    entryDocumento2 = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryDocumento2.grid(row=6, column=1, pady=10, padx=10, sticky="w")
+
+    entryProfissao = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryProfissao.grid(row=7, column=1, pady=10, padx=10, sticky="w")
+
+    entryValor = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryValor.grid(row=8, column=1, pady=10, padx=10, sticky="w")
+
+    entryFormaPagamento = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryFormaPagamento.grid(row=9, column=1, pady=10, padx=10, sticky="w")
+
+    entryApadrinhamento = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryApadrinhamento.grid(row=10, column=1, pady=10, padx=10, sticky="w")
+
+    entryDataEntrada = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryDataEntrada.grid(row=11, column=1, pady=10, padx=10, sticky="w")
+
+    entryDataSaida = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryDataSaida.grid(row=12, column=1, pady=10, padx=10, sticky="w")
+
+    entryobs2 = ctk.CTkEntry(financeiro_frame, width=400, font=("Arial", 16))
+    entryobs2.grid(row=13, column=1, pady=10, padx=10, sticky="w")
+
+    button_save = ctk.CTkButton(financeiro_frame, text="Salvar", width=150, height=40, font=("Arial", 16), fg_color="#B22222", command=lambda: save_financeiro(entryNome2, entryTelefone2, entryEndereco2, entryEmail2, entryDataNasc2, entryDocumento2, entryProfissao, entryValor, entryFormaPagamento, entryApadrinhamento, entryDataEntrada, entryDataSaida, entryobs2))
     button_save.grid(row=row, column=0, columnspan=2, pady=20)
 
-    button_back = ctk.CTkButton(financeiro_frame, text="Voltar", width=200, height=40, font=("Arial", 16), fg_color="#B22222", command=show_financeiro)
+    button_back = ctk.CTkButton(financeiro_frame, text="Voltar", width=150, height=40, font=("Arial", 16), fg_color="#B22222", command=show_financeiro)
     button_back.grid(row=row+1, column=0, columnspan=2, pady=20)
 
-def listar_projetos():
-    # Função para listar projetos
-    messagebox.showinfo("Lista de Projetos", "Lista de projetos cadastrados:\n- Projeto 1\n- Projeto 2")
+    button_excluir = ctk.CTkButton(financeiro_frame, text='Excluir', width=150, height=40, font=("Arial", 16),
+                                     fg_color="#B22222", command=lambda: excluir_voluntario(entryDocumento2))
+    button_excluir.grid(row=row+2, column=0, columnspan=2, pady=20)
 
-def listar_relatorios():
-    # Função para listar relatórios
-    messagebox.showinfo("Lista de Relatórios", "Lista de relatórios gerados:\n- Relatório 1\n- Relatório 2")
+    button_consultar = ctk.CTkButton(financeiro_frame, text='Consultar', width=150, height=40, font=("Arial", 16),
+                                     fg_color="#B22222", command=lambda: consultar_voluntario(entryDocumento2))
+    button_consultar.place(x=420, y=712)
 
-def save_projeto(entries):
-    data = {label: entry.get() for label, entry in entries.items()}
-    print(data)  # Aqui você pode adicionar a lógica para salvar os dados
-    messagebox.showinfo("Sucesso", "Projeto salvo com sucesso!")
+
+
+# Função para excluir um projeto da lista e do banco de dados
+def excluir_projeto(entryNomeProjeto):
+    try:
+        # Extrair o valor de texto do campo de entrada
+        nomeProjeto = entryNomeProjeto.get()
+
+        connection = connect_to_db()
+        if connection is None:
+            return
+
+        cursor = connection.cursor()
+
+        query = "DELETE FROM projetos WHERE nome_projeto = %s"
+        cursor.execute(query, (nomeProjeto,))
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+        messagebox.showinfo("Exclusão", "Projeto excluído com sucesso!")
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao excluir Projeto: {err}")
+
+
+def listar_projetos(entryNomeProjeto):
+    try:
+        # Extrair o valor de texto do campo de entrada
+        nomeProjeto = entryNomeProjeto.get()
+
+        connection = connect_to_db()
+        if connection is None:
+            return None
+
+        cursor = connection.cursor()
+
+        query = "SELECT * FROM projetos WHERE nome_projeto = %s"
+        cursor.execute(query, (nomeProjeto,))
+        voluntarios = cursor.fetchone()
+
+        cursor.close()
+        connection.close()
+
+        if nomeProjeto:
+            # Formatar as informações do beneficiário para exibição
+            projetos_info = (
+                f"Nome: {nomeProjeto[0]}\n"
+                f"Data Início: {nomeProjeto[1]}\n"
+                f"Data Fim: {nomeProjeto[2]}\n"
+                f"Participantes: {nomeProjeto[3]}\n"
+            )
+            messagebox.showinfo("Informações do Projeto", projetos_info)
+        else:
+            messagebox.showinfo("Não encontrado", "Projeto não encontrado.")
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao consultar Projeto: {err}")
+
+
+def save_projeto(entryNomeProjeto, entryProjetoDataInicio, entryProjetoDataFim, entryParticipantes):
+    nomeProjeto = entryNomeProjeto.get()
+    dataInicio = entryProjetoDataInicio.get()
+    dataFim = entryProjetoDataFim.get()
+    participantes = entryParticipantes.get()
+
+    try:
+        connection = connect_to_db()
+        cursor = connection.cursor()
+
+    # Comando SQL para inserir dados na tabela de beneficiários
+        query =    """
+                INSERT INTO projetos (nome_projeto, data_inicio, data_termino, participantes)
+                VALUES (%s, %s, %s, %s)
+             """
+        cursor.execute(query, (nomeProjeto, dataInicio, dataFim, participantes))
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+        messagebox.showinfo("Cadastro", "Beneficiário cadastrado com sucesso!")
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao cadastrar beneficiário: {err}")
 
 def save_relatorio(text_widget):
     data = text_widget.get("1.0", "end-1c")
     print(data)  # Aqui você pode adicionar a lógica para salvar o relatório
     messagebox.showinfo("Sucesso", "Relatório salvo com sucesso!")
 
-def save_financeiro(entries):
-    data = {label: entry.get() for label, entry in entries.items()}
-    print(data)  # Aqui você pode adicionar a lógica para salvar os dados
-    messagebox.showinfo("Sucesso", "Dados financeiros salvos com sucesso!")
+def save_financeiro(entryNome2, entryTelefone2, entryEndereco2, entryEmail2, entryDataNasc2, entryDocumento2, entryProfissao, entryValor, entryFormaPagamento, entryApadrinhamento, entryDataEntrada, entryDataSaida, entryobs2):
+
+    # Obtendo os valores dos campos de entrada
+    nome2 = entryNome2.get()
+    telefone2 = entryTelefone2.get()
+    endereco2 = entryEndereco2.get()
+    email2 = entryEmail2.get()
+    data_nascimento2 = entryDataNasc2.get()
+    documento2 = entryDocumento2.get()
+    profissao = entryProfissao.get()
+    valor = entryValor.get()
+    formaPagamento = entryFormaPagamento.get()
+    apadrinhamento = entryApadrinhamento.get()
+    dataEntrada2 = entryDataEntrada.get()
+    dataSaida2 = entryDataSaida.get()
+    obs2 = entryobs2.get()
+
+
+    try:
+        connection = connect_to_db()
+        cursor = connection.cursor()
+
+    # Comando SQL para inserir dados na tabela de beneficiários
+        query =    """
+                INSERT INTO voluntarios (nome, telefone, endereco, email, data_nascimento, documento, profissao,
+                                       valor, formaPagamento, apadrinhamento, dataEntrada, dataSaida, obs)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             """
+        cursor.execute(query, (nome2, telefone2, endereco2, email2, data_nascimento2, documento2, profissao,
+                            valor, formaPagamento, apadrinhamento, dataEntrada2, dataSaida2, obs2))
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+        messagebox.showinfo("Cadastro", "Beneficiário cadastrado com sucesso!")
+
+    except mysql.connector.Error as err:
+        messagebox.showerror("Erro", f"Erro ao cadastrar beneficiário: {err}")
 
 def show_indicadores():
     # Remove todos os widgets da janela principal
