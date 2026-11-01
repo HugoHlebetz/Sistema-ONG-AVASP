@@ -15,3 +15,8 @@ O modelo de mãos (~8 MB) é baixado automaticamente na primeira execução.
 Teclas: `q`/ESC sair · `e` trocar efeito (psicodélico, solarizado, neon) · `m` espelhar · `d` mostrar pontos dos dedos.
 
 Obs.: este projeto é independente do sistema da ONG (`sistema.py`).
+
+## Versão web (iPhone / Android / qualquer navegador)
+`web/index.html` é uma versão em JavaScript (MediaPipe + WebGL) que roda no Safari do iPhone.
+A câmera só funciona em **HTTPS**, então hospede a pasta (ex.: GitHub Pages) e abra o link no celular,
+toque em "Ativar câmera" e permita o acesso. Botões: trocar efeito e virar câmera.
