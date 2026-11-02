@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Efeito Mãos</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;color:#fff;font-family:-apple-system,system-ui,sans-serif;overflow:hidden}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  canvas{max-width:100%;max-height:100%;background:#000}
+  video{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  #msg{position:fixed;left:0;right:0;top:env(safe-area-inset-top);padding:12px 16px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;pointer-events:none}
+  #bar{z-index:5;position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom);display:flex;gap:10px;justify-content:center;padding:14px}
+  button{font:600 15px -apple-system,system-ui,sans-serif;color:#fff;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);border-radius:22px;padding:11px 18px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #start{z-index:10;position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#000;text-align:center;padding:24px}
+  #start button{font-size:18px;padding:14px 26px;background:#6a3df0;border-color:#6a3df0}
+</style>
+</head>
+<body>
+<div id="start">
+  <div style="font-size:20px;font-weight:700">Efeito moldura de mãos</div>
+  <div style="opacity:.8;max-width:320px;line-height:1.4">Forme um retângulo com polegar e indicador das duas mãos, de frente para a câmera.</div>
+  <button id="go">Ativar câmera</button>
+  <div id="err" style="color:#ff8a8a;max-width:320px"></div>
+</div>
+<div id="wrap"><canvas id="c"></canvas></div>
+<video id="v" playsinline muted autoplay></video>
+<div id="msg"></div>
+<div id="bar"><button id="fx">Efeito: 1</button><button id="cam">Virar câmera</button></div>
+
+<script type="module">
+import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+const $ = id => document.getElementById(id);
+const video = $("v"), canvas = $("c"), msg = $("msg");
+
+let facing = "user", fxMode = 0, landmarker = null, stream = null;
+let quadS = null, lost = 0;
+
+const gl = canvas.getContext("webgl", { antialias: false, preserveDrawingBuffer: false });
+
+const VS = `attribute vec2 p;varying vec2 vUv;void main(){vUv=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0.,1.);}`;
+const FS = `precision highp float;
+varying vec2 vUv;
+uniform sampler2D tex;
+uniform mat3 H;        // pixel -> uv do quadro
+uniform vec2 res;
+uniform float t;
+uniform float mode;
+uniform float on;
+uniform float mirror;
+vec3 rgb2hsv(vec3 c){vec4 K=vec4(0.,-1./3.,2./3.,-1.);vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));float d=q.x-min(q.w,q.y);float e=1e-10;return vec3(abs(q.z+(q.w-q.y)/(d+e)),d/(q.x+e),q.x);}
+vec3 hsv2rgb(vec3 c){vec4 K=vec4(1.,2./3.,1./3.,3.);vec3 p=abs(fract(c.xxx+K.xyz)*6.-K.www);return c.z*mix(K.xxx,clamp(p-K.xxx,0.,1.),c.y);}
+vec3 cam(vec2 uv){ if(mirror>.5) uv.x=1.-uv.x; return texture2D(tex,uv).rgb; }
+vec3 effect(vec2 uv){
+  vec2 w=uv+.008*vec2(sin(uv.y*30.+t*3.),cos(uv.x*30.+t*3.));
+  vec3 c=cam(w);
+  if(mode<.5){
+    vec3 s=vec3(c.r>.5?1.-c.r:c.r,c.g>.5?1.-c.g:c.g,c.b>.5?1.-c.b:c.b);
+    vec3 h=rgb2hsv(c); h.x=fract(h.x+t*.15); h.y=1.; h.z=max(h.z,.35);
+    return mix(hsv2rgb(h),s.bgr,.35);
+  } else if(mode<1.5){
+    vec3 s=vec3(c.r>.5?1.-c.r:c.r,c.g>.5?1.-c.g:c.g,c.b>.5?1.-c.b:c.b)*2.;
+    return fract(s.bgr+t*.1);
+  } else {
+    float g=dot(c,vec3(.299,.587,.114));
+    float e=abs(dot(cam(w+vec2(1./res.x,0.)),vec3(.3))-g)+abs(dot(cam(w+vec2(0.,1./res.y)),vec3(.3))-g);
+    return hsv2rgb(vec3(fract(g+t*.1),1.,clamp(g*.5+e*12.,0.,1.)));
+  }
+}
+void main(){
+  vec3 base=cam(vUv);
+  vec3 col=base;
+  if(on>.5){
+    vec3 q=H*vec3(vUv.x*res.x,vUv.y*res.y,1.);
+    vec2 uv=q.xy/q.z;
+    if(uv.x>=0.&&uv.x<=1.&&uv.y>=0.&&uv.y<=1.&&q.z>0.){
+      col=effect(uv);
+      float b=min(min(uv.x,1.-uv.x),min(uv.y,1.-uv.y));
+      if(b<.006) col=vec3(1.);
+    }
+  }
+  gl_FragColor=vec4(col,1.);
+}`;
+function sh(type, src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
+const prog = gl.createProgram();
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog); gl.useProgram(prog);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+const U = n => gl.getUniformLocation(prog, n);
+const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+// Homografia: leva 4 pontos (pixel) -> cantos do quadrado unitário.
+function homography(src, dst){
+  const A=[], b=[];
+  for(let i=0;i<4;i++){
+    const [x,y]=src[i],[u,v]=dst[i];
+    A.push([x,y,1,0,0,0,-u*x,-u*y]); b.push(u);
+    A.push([0,0,0,x,y,1,-v*x,-v*y]); b.push(v);
+  }
+  const n=8; for(let i=0;i<n;i++) A[i].push(b[i]);
+  for(let c=0;c<n;c++){
+    let m=c; for(let r=c+1;r<n;r++) if(Math.abs(A[r][c])>Math.abs(A[m][c])) m=r;
+    [A[c],A[m]]=[A[m],A[c]];
+    if(Math.abs(A[c][c])<1e-12) return null;
+    for(let r=0;r<n;r++){ if(r===c) continue; const f=A[r][c]/A[c][c]; for(let k=c;k<=n;k++) A[r][k]-=f*A[c][k]; }
+  }
+  const h=A.map((row,i)=>row[n]/row[i]); h.push(1); return h; // row-major 3x3
+}
+function convex(q){
+  let s=0; for(let i=0;i<4;i++){const a=q[i],b=q[(i+1)%4],c=q[(i+2)%4];
+    const z=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]); const sg=Math.sign(z);
+    if(sg===0) return false; if(s===0) s=sg; else if(s!==sg) return false;}
+  return true;
+}
+function area(q){let a=0;for(let i=0;i<4;i++){const p=q[i],n=q[(i+1)%4];a+=p[0]*n[1]-n[0]*p[1];}return Math.abs(a)/2;}
+
+// 2 mãos -> [TL,TR,BR,BL] em pixels do canvas (imagem já espelhada se usar câmera frontal)
+function quadFrom(hands, W, H, mirror){
+  if(hands.length<2) return null;
+  const hs = hands.slice(0,2).map(lm=>{
+    const pts=[4,8].map(i=>[(mirror?1-lm[i].x:lm[i].x)*W, lm[i].y*H]);
+    pts.sort((a,b)=>a[1]-b[1]); return pts;
+  });
+  hs.sort((a,b)=>(a[0][0]+a[1][0])-(b[0][0]+b[1][0]));
+  return [hs[0][0], hs[1][0], hs[1][1], hs[0][1]];
+}
+
+async function startCamera(){
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  stream = await navigator.mediaDevices.getUserMedia({
+    audio:false, video:{ facingMode:facing, width:{ideal:1280}, height:{ideal:720} }
+  });
+  video.srcObject = stream; await video.play();
+  await new Promise(r=>{ if(video.videoWidth) r(); else video.onloadedmetadata=r; });
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  gl.viewport(0,0,canvas.width,canvas.height);
+  quadS = null;
+}
+
+async function loadModel(){
+  const fileset = await FilesetResolver.forVisionTasks(WASM);
+  const mk = delegate => HandLandmarker.createFromOptions(fileset, {
+    baseOptions:{ modelAssetPath: MODEL, delegate },
+    runningMode:"VIDEO", numHands:2, minHandDetectionConfidence:.5, minTrackingConfidence:.5
+  });
+  try { return await mk("GPU"); } catch(e){ console.warn("GPU falhou, usando CPU", e); return await mk("CPU"); }
+}
+
+let lastVT = -1, hands = [];
+function frame(now){
+  requestAnimationFrame(frame);
+  if(video.readyState < 2) return;
+  const W=canvas.width, H=canvas.height, mirror = facing==="user";
+  if(landmarker && video.currentTime !== lastVT){
+    lastVT = video.currentTime;
+    try { hands = landmarker.detectForVideo(video, now).landmarks || []; } catch(e){ hands=[]; }
+  }
+  const q = quadFrom(hands, W, H, mirror);
+  if(q && convex(q) && area(q) > .003*W*H){
+    const a=.5; quadS = quadS ? quadS.map((p,i)=>[a*p[0]+(1-a)*q[i][0], a*p[1]+(1-a)*q[i][1]]) : q;
+    lost=0;
+  } else if(++lost>5) quadS=null;
+
+  let Hm=null; if(quadS) Hm = homography(quadS, [[0,0],[1,0],[1,1],[0,1]]);
+  msg.textContent = !landmarker ? "Carregando modelo de mãos..." : (Hm ? "" : "Forme um retângulo com polegar e indicador das duas mãos");
+
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,video);
+  gl.uniform1i(U("tex"),0);
+  gl.uniform2f(U("res"),W,H);
+  gl.uniform1f(U("t"),now/1000);
+  gl.uniform1f(U("mode"),fxMode);
+  gl.uniform1f(U("mirror"),mirror?1:0);
+  gl.uniform1f(U("on"),Hm?1:0);
+  if(Hm){ // row-major -> column-major
+    gl.uniformMatrix3fv(U("H"),false,new Float32Array([Hm[0],Hm[3],Hm[6],Hm[1],Hm[4],Hm[7],Hm[2],Hm[5],Hm[8]]));
+  }
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+}
+
+$("fx").onclick = () => { fxMode=(fxMode+1)%3; $("fx").textContent="Efeito: "+(fxMode+1); };
+$("cam").onclick = async () => { facing = facing==="user"?"environment":"user"; try{ await startCamera(); }catch(e){ msg.textContent="Erro: "+e.message; } };
+$("go").onclick = async () => {
+  $("go").disabled = true; $("err").textContent = "";
+  try{
+    if(!navigator.mediaDevices?.getUserMedia) throw new Error("Câmera indisponível. Abra a página por HTTPS.");
+    await startCamera();
+    $("start").style.display="none";
+    requestAnimationFrame(frame);
+    landmarker = await loadModel();
+  }catch(e){ $("err").textContent = e.message || String(e); $("go").disabled=false; $("start").style.display="flex"; }
+};
+</script>
+</body>
+</html>
